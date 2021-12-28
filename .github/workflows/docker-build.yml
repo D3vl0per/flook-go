@@ -79,7 +79,7 @@ jobs:
         run: |
           IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$REPOSITORY_NAME
           IMAGE_ID_2=${{ secrets.DOCKER_REPO }}/${{ secrets.DOCKER_LOGIN_NAME }}/$REPOSITORY_NAME
-          IMAGE_ID_3=${{ secrets.DOCKER_REPO_2 }}/$IMAGE_NAME/$IMAGE_NAME
+          IMAGE_ID_3=${{ secrets.DOCKER_REPO_2 }}/$REPOSITORY_NAME/$REPOSITORY_NAME
           
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
           IMAGE_ID_2=$(echo $IMAGE_ID_2 | tr '[A-Z]' '[a-z]')
