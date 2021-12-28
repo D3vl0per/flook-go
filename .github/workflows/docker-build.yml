@@ -79,15 +79,18 @@ jobs:
         run: |
           IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$REPOSITORY_NAME
           IMAGE_ID_2=${{ secrets.DOCKER_REPO }}/${{ secrets.DOCKER_LOGIN_NAME }}/$REPOSITORY_NAME
-
+          IMAGE_ID_3=${{ secrets.DOCKER_REPO_2 }}/${{ secrets.DOCKER_LOGIN_NAME_2 }}/$REPOSITORY_NAME
+          
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
           IMAGE_ID_2=$(echo $IMAGE_ID_2 | tr '[A-Z]' '[a-z]')
+          IMAGE_ID_3=$(echo $IMAGE_ID_3 | tr '[A-Z]' '[a-z]')
 
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
 
           echo "IMAGE_ID=$IMAGE_ID" >> $GITHUB_ENV
           echo "IMAGE_ID_2=$IMAGE_ID_2" >> $GITHUB_ENV
+          echo "IMAGE_ID_3=$IMAGE_ID_3" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build container image
@@ -118,14 +121,26 @@ jobs:
           registry: ${{ secrets.DOCKER_REPO }}
           username: ${{ secrets.DOCKER_LOGIN_NAME }}
           password: ${{ secrets.DOCKER_API_TOKEN }}
+          
+      - name: Login to another External Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ secrets.DOCKER_REPO_2 }}
+          username: ${{ secrets.DOCKER_LOGIN_NAME_2 }}
+          password: ${{ secrets.DOCKER_API_TOKEN_2 }}
 
       - name: Tag the container images
         run: |
           docker tag app:latest $IMAGE_ID:$VERSION
           docker tag app:latest $IMAGE_ID_2:$VERSION
+          docker tag app:latest $IMAGE_ID_3:$VERSION
 
       - name: Push container image to Github Container Registry
         run: docker push $IMAGE_ID:$VERSION
 
       - name: Push container image to External Container Registry
         run: docker push $IMAGE_ID_2:$VERSION
+        
+      - name: Push container image to another External Container Registry
+        run: docker push $IMAGE_ID_3:$VERSION
+    
