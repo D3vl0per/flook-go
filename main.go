@@ -1,39 +1,51 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
-	"encoding/json"
+	"github.com/PuerkitoBio/goquery"
 	_ "github.com/joho/godotenv/autoload"
 	lr "github.com/sirupsen/logrus"
-	"github.com/thoj/go-ircevent"
+	irc "github.com/thoj/go-ircevent"
+	emoji "github.com/tmdvs/Go-Emoji-Utils"
 	"golang.org/x/net/html"
 	"mvdan.cc/xurls/v2"
-	"math/rand"
-
-	"github.com/PuerkitoBio/goquery"
-	"github.com/tmdvs/Go-Emoji-Utils"
-	"strconv"
-	"bytes"
 )
 
+var client *http.Client
+
+func init() {
+	client = &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:       10,
+			IdleConnTimeout:    30 * time.Second,
+			DisableCompression: false,
+		},
+	}
+}
+
 type Config struct {
-	IRC IRC
+	IRC    IRC
 	OpenAI OpenAI
 }
 
 type IRC struct {
-	Server string
+	Server  string
 	Channel string
-	Nick string
-	User string
+	Nick    string
+	User    string
 }
 
 type OpenAI struct {
@@ -50,24 +62,16 @@ func init() {
 	config.IRC.Server = os.Getenv("IRC_SERVER")
 	config.IRC.Channel = os.Getenv("IRC_CHANNEL")
 	config.IRC.Nick = os.Getenv("IRC_NICK")
-	config.IRC.User	= os.Getenv("IRC_USER")
+	config.IRC.User = os.Getenv("IRC_USER")
 	config.OpenAI.Instance = os.Getenv("OPENAI_INSTANCE")
 	config.OpenAI.APIToken = os.Getenv("OPENAI_API_TOKEN")
 	config.OpenAI.MaxToken, _ = strconv.Atoi(os.Getenv("OPENAI_MAX_TOKEN"))
 
 }
+
 /*
 func getTitleHttpClient(url string) (title, host string){
-	c := &http.Client{
-		Timeout: time.Duration(5 * time.Second),
-		Transport: &http.Transport{
-				MaxIdleConns:       10,
-				IdleConnTimeout:    30 * time.Second,
-				DisableCompression: false,
-		},
-	}
-
-	resp, err := c.Get(url)
+	resp, err := client.Get(url)
     if err != nil {
         lr.Error(err)
     }
@@ -79,7 +83,7 @@ func getTitleHttpClient(url string) (title, host string){
 	} else {
 		return "", host
 	}
-	
+
 }
 */
 func isTitleElement(n *html.Node) bool {
@@ -117,43 +121,33 @@ type NitterInstances []struct {
 	TimeWeek int    `json:"timeWeek"`
 }
 
-func parseBody(url string) (resp *http.Response, body []byte){
+func parseBody(url string) (resp *http.Response, body []byte) {
 	resp = httpGet(url)
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-			lr.Fatal(err)
+		lr.Fatal(err)
 	}
 	return resp, body
 }
 
-func httpGet(url string) (*http.Response) {
-
-	c := &http.Client{
-		Timeout: time.Duration(5 * time.Second),
-		Transport: &http.Transport{
-				MaxIdleConns:       10,
-				IdleConnTimeout:    30 * time.Second,
-				DisableCompression: false,
-		},
+func httpGet(url string) *http.Response {
+	resp, err := client.Get(url)
+	if err != nil {
+		lr.Error(err)
 	}
-
-	resp, err := c.Get(url)
-    if err != nil {
-        lr.Error(err)
-    }
 
 	return resp
 }
-func getRandomNitterInstance() (randomHost string){
+func getRandomNitterInstance() (randomHost string) {
 	resp, body := parseBody("https://raw.githubusercontent.com/xnaas/nitter-instances/master/history/summary.json")
 
 	if resp.StatusCode == 200 {
-	
+
 		var nitterInstances NitterInstances
 		json.Unmarshal(body, &nitterInstances)
 		var ups []int
-		
+
 		for i := range nitterInstances {
 			if nitterInstances[i].Status == "up" && nitterInstances[i].TimeWeek < 1000 {
 				ups = append(ups, i)
@@ -161,7 +155,7 @@ func getRandomNitterInstance() (randomHost string){
 		}
 
 		rand.Seed(time.Now().UnixNano())
-		randomHost = nitterInstances[ups[rand.Intn(len(ups) - 1)]].Name
+		randomHost = nitterInstances[ups[rand.Intn(len(ups)-1)]].Name
 	} else {
 		randomHost = "nitter.hu"
 	}
@@ -192,15 +186,14 @@ type Choices struct {
 	FinishReason string      `json:"finish_reason"`
 }
 
-func parseOpenAI(source string) (tldr string){
+func parseOpenAI(source string) (tldr string) {
 	resp := openAIHttpPost(source)
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-			lr.Fatal(err)
+		lr.Fatal(err)
 	}
-
 
 	var openAIResponse OpenAIResponse
 	json.Unmarshal(body, &openAIResponse)
@@ -208,36 +201,36 @@ func parseOpenAI(source string) (tldr string){
 	return openAIResponse.Choices[0].Text
 }
 
-func openAIHttpPost(source string) (tldr *http.Response){
+func openAIHttpPost(source string) (tldr *http.Response) {
 
 	if len(source) > 2000 {
 		source = source[0:2000]
 	}
-	
+
 	source = emoji.RemoveAll(source)
 	source += "\ntl;dr:"
 
 	data := Payload{
-		Prompt: source,
-		Temperature: 0.3,
-		MaxTokens: config.OpenAI.MaxToken,
-		TopP: 1.0,
+		Prompt:           source,
+		Temperature:      0.3,
+		MaxTokens:        config.OpenAI.MaxToken,
+		TopP:             1.0,
 		FrequencyPenalty: 0.0,
-		PresencePenalty: 0.0,
+		PresencePenalty:  0.0,
 	}
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
 		lr.Error(err)
 	}
 	body := bytes.NewReader(payloadBytes)
-	
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/engines/" + config.OpenAI.Instance + "/completions", body)
+
+	req, err := http.NewRequest("POST", "https://api.openai.com/v1/engines/"+config.OpenAI.Instance+"/completions", body)
 	if err != nil {
 		lr.Error(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", config.OpenAI.APIToken)
-	
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		lr.Error(err)
@@ -247,77 +240,73 @@ func openAIHttpPost(source string) (tldr *http.Response){
 }
 
 func main() {
-		
-        irccon := irc.IRC(config.IRC.Nick, config.IRC.User)
-        irccon.VerboseCallbackHandler = false
-        irccon.Debug = false
-        irccon.UseTLS = true
-        irccon.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-        irccon.AddCallback("001", func(e *irc.Event) { irccon.Join(config.IRC.Channel) })
-        //irccon.AddCallback("366", func(e *irc.Event) {  })
-		irccon.AddCallback("PRIVMSG", func(event *irc.Event) {
 
-			rxRelaxed := xurls.Relaxed()
-			re := regexp.MustCompile(" [(]re: @[^ :]*: .*")
-			message := re.ReplaceAllString(event.Message(), "")
-			urlsInMessage := rxRelaxed.FindAllString(message, -1)
-			//irccon.Privmsg(event.Arguments[0], "Lol, twitter")
-			if len(urlsInMessage) > 0 {
-				if (strings.Contains(urlsInMessage[0], "twitter.com/")){
-					
-					
+	irccon := irc.IRC(config.IRC.Nick, config.IRC.User)
+	irccon.VerboseCallbackHandler = false
+	irccon.Debug = false
+	irccon.UseTLS = true
+	irccon.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	irccon.AddCallback("001", func(e *irc.Event) { irccon.Join(config.IRC.Channel) })
+	//irccon.AddCallback("366", func(e *irc.Event) {  })
+	irccon.AddCallback("PRIVMSG", func(event *irc.Event) {
 
-					pureUrl := urlsInMessage[0]
-					
-					replacedUrl := strings.Replace(pureUrl, "twitter.com", getRandomNitterInstance(), -1)
-					irccon.Privmsg(event.Arguments[0], replacedUrl)
+		rxRelaxed := xurls.Relaxed()
+		re := regexp.MustCompile(" [(]re: @[^ :]*: .*")
+		message := re.ReplaceAllString(event.Message(), "")
+		urlsInMessage := rxRelaxed.FindAllString(message, -1)
+		//irccon.Privmsg(event.Arguments[0], "Lol, twitter")
+		if len(urlsInMessage) > 0 {
+			if strings.Contains(urlsInMessage[0], "twitter.com/") {
 
-					resp := httpGet(replacedUrl)
-					doc, err := goquery.NewDocumentFromReader(resp.Body)
-					if err != nil {
-						lr.Error(err)
-					}
-					
-					tweetContent := doc.Find(".main-tweet").Find(".tweet-content").Contents().Text()
-					//title := doc.Find("Title").Contents().Text()
-					if len(tweetContent) > 0 {
-						irccon.Privmsg(event.Arguments[0], "((Content)) " + tweetContent)
-					}
-					
+				pureUrl := urlsInMessage[0]
 
-				} else if (strings.Contains(urlsInMessage[0], "reddit.com/")){
+				replacedUrl := strings.Replace(pureUrl, "twitter.com", getRandomNitterInstance(), -1)
+				irccon.Privmsg(event.Arguments[0], replacedUrl)
 
-					pureUrl := urlsInMessage[0]
-					replacedUrl := strings.Replace(pureUrl, "reddit.com", "libreddit.hu", -1)
-					irccon.Privmsg(event.Arguments[0], replacedUrl)
+				resp := httpGet(replacedUrl)
+				doc, err := goquery.NewDocumentFromReader(resp.Body)
+				if err != nil {
+					lr.Error(err)
+				}
 
-				} else {
-					pureUrl := urlsInMessage[0]
+				tweetContent := doc.Find(".main-tweet").Find(".tweet-content").Contents().Text()
+				//title := doc.Find("Title").Contents().Text()
+				if len(tweetContent) > 0 {
+					irccon.Privmsg(event.Arguments[0], "((Content)) "+tweetContent)
+				}
 
-					resp := httpGet(pureUrl)
-					doc, err := goquery.NewDocumentFromReader(resp.Body)
-					if err != nil {
-						lr.Error(err)
-					}
-					title := doc.Find("Title").Contents().Text()
-					if len(title) > 0 {
-						irccon.Privmsg(event.Arguments[0], "((" + resp.Request.URL.Host + ")) " + title)
-					}
+			} else if strings.Contains(urlsInMessage[0], "reddit.com/") {
 
-					tldr := parseOpenAI(doc.Find("p").Contents().Text())
+				pureUrl := urlsInMessage[0]
+				replacedUrl := strings.Replace(pureUrl, "reddit.com", "libreddit.hu", -1)
+				irccon.Privmsg(event.Arguments[0], replacedUrl)
 
-					if len(tldr) > 0 {
-						irccon.Privmsg(event.Arguments[0], "((Estimated TL;DR)) " + tldr)
-					}
+			} else {
+				pureUrl := urlsInMessage[0]
 
-				}	
+				resp := httpGet(pureUrl)
+				doc, err := goquery.NewDocumentFromReader(resp.Body)
+				if err != nil {
+					lr.Error(err)
+				}
+				title := doc.Find("Title").Contents().Text()
+				if len(title) > 0 {
+					irccon.Privmsg(event.Arguments[0], "(("+resp.Request.URL.Host+")) "+title)
+				}
+
+				tldr := parseOpenAI(doc.Find("p").Contents().Text())
+
+				if len(tldr) > 0 {
+					irccon.Privmsg(event.Arguments[0], "((Estimated TL;DR)) "+tldr)
+				}
+
 			}
-		});
-        err := irccon.Connect(config.IRC.Server)
+		}
+	})
+	err := irccon.Connect(config.IRC.Server)
 	if err != nil {
 		lr.Error(err)
 		return
 	}
-        irccon.Loop()
+	irccon.Loop()
 }
-
