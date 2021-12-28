@@ -1,0 +1,8 @@
+.env
+docker-compose.yml
+Dockerfile
+.dockerignore
+flook
+flook.tar.gz
+.git
+.github/

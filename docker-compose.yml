@@ -1,0 +1,13 @@
+version: "3.7"
+services:
+  flook-go:
+    image: flook-go:alpha
+    restart: unless-stopped
+    environment:
+      - IRC_CHANNEL=
+      - IRC_SERVER=
+      - IRC_NICK=flook-go
+      - IRC_USER=flook-go
+      - OPENAI_INSTANCE=
+      - OPENAI_API_TOKEN=
+      - OPENAI_MAX_TOKEN=
