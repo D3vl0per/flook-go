@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -257,7 +258,9 @@ func main() {
 		irccon.AddCallback("PRIVMSG", func(event *irc.Event) {
 
 			rxRelaxed := xurls.Relaxed()
-			urlsInMessage := rxRelaxed.FindAllString(event.Message(), -1)
+			re := regexp.MustCompile(" [(]re: @[^ :]*: .*")
+			message := re.ReplaceAllString(event.Message(), "")
+			urlsInMessage := rxRelaxed.FindAllString(message, -1)
 			//irccon.Privmsg(event.Arguments[0], "Lol, twitter")
 			if len(urlsInMessage) > 0 {
 				if (strings.Contains(urlsInMessage[0], "twitter.com/")){
