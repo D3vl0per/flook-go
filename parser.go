@@ -49,21 +49,11 @@ func urlTokens(url string) (string) {
 
 func getTextWithSeparators(s *goquery.Selection, separator string) string {
 	var buf bytes.Buffer
-
-	var f func(*html.Node)
-	f = func(n *html.Node) {
+	for _, n := range s.Nodes {
 		if n.Type == html.TextNode {
 			buf.WriteString(n.Data)
 			buf.WriteString(separator)
 		}
-		if n.FirstChild != nil {
-			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				f(c)
-			}
-		}
-	}
-	for _, n := range s.Nodes {
-		f(n)
 	}
 
 	return buf.String()
@@ -82,7 +72,19 @@ func getInputToTldr(pureUrl string, doc *goquery.Document, longMeta string) (str
 		AddSelection(doc.Find("summary")).
 		AddSelection(doc.Find("li")).
 		AddSelection(doc.Find("td")).
-		AddSelection(doc.Find("button"))
+		AddSelection(doc.Find("button")).
+		AddSelection(doc.Find("a")).
+		AddSelection(doc.Find("div")).
+		AddSelection(doc.Find("em")).
+		AddSelection(doc.Find("strong")).
+		AddSelection(doc.Find("i")).
+		AddSelection(doc.Find("b")).
+		AddSelection(doc.Find("pre")).
+		AddSelection(doc.Find("code")).
+		AddSelection(doc.Find("main")).
+		AddSelection(doc.Find("article")).
+		AddSelection(doc.Find("label")).
+		AddSelection(doc.Find("span"))
 
 	pageContent := trim(getTextWithSeparators(textNodes.Contents(), "\n"))
 
