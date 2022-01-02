@@ -106,6 +106,15 @@ func TestGetDocumentMetaOutputs(t *testing.T) {
 	assert(t, gotLongMeta, "a\nbad title", "longMeta")
 }
 
+func TestGetDocumentMetaLongTitle(t *testing.T) {
+	cats := strings.Repeat("cat ", 96) + "cat"
+	moreCats := cats + " cat cat"
+	html :=  "<html><head><title>" + moreCats + "</title></head><body></body></html>"
+	gotMetaMessage, gotLongMeta := getDocumentMeta("host", getHtmlFromString(t, html))
+	assert(t, gotMetaMessage, "((host)) " + cats + "...", "metaMessage")
+	assert(t, gotLongMeta, moreCats, "longMeta")
+}
+
 func TestGetDocumentMetaEdges(t *testing.T) {
 	asserts(
 		t,

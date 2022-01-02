@@ -29,6 +29,9 @@ func getDocumentMeta(host string, doc *goquery.Document) (string, string) {
 		longMeta = maybeLongMeta
 		onelineLongMeta := regexp.MustCompile("\\s+").ReplaceAllString(longMeta, " ")
 		metaMessage = "((" + host + ")) " + onelineLongMeta
+		if len(metaMessage) > 397 {
+			metaMessage = trimLastWord(metaMessage[0:397]) + "..."
+		}
 	}
 	return metaMessage, longMeta
 }
