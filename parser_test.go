@@ -43,6 +43,17 @@ func asserts(t *testing.T, fun func(string) string, cases []StringCase) {
 	}
 }
 
+func TestTrim(t *testing.T) {
+	asserts(t, trim, []StringCase{
+		{"a", "a"},
+		{"a:b", "a:b"},
+		{"a.,:.,:  ", "a"},
+		{"  .,:a", "a"},
+		{"a  b", "a b"},
+		{"a\n\nb", "a\nb"},
+		})
+}
+
 func getHtmlFromString(t *testing.T, html string) *goquery.Document {
 	reader := strings.NewReader(html)
 	doc, err := goquery.NewDocumentFromReader(reader)
@@ -56,7 +67,8 @@ func getExampleHtml(t *testing.T) *goquery.Document {
 	return getHtmlFromString(t, `
 		<html>
 		<head>
-			<title>a title</title>
+			<title>a
+bad  title</title>
 		</head>
 		<body>
 			<p>hi there</p>
@@ -82,8 +94,8 @@ func TestShowMiddleN(t *testing.T) {
 
 func TestGetDocumentMetaOutputs(t *testing.T) {
 	gotMetaMessage, gotLongMeta := getDocumentMeta("host", getExampleHtml(t))
-	assert(t, gotMetaMessage, "((host)) a title", "metaMessage")
-	assert(t, gotLongMeta, "a title", "longMeta")
+	assert(t, gotMetaMessage, "((host)) a bad title", "metaMessage")
+	assert(t, gotLongMeta, "a\nbad title", "longMeta")
 }
 
 func TestGetDocumentMetaEdges(t *testing.T) {
@@ -97,6 +109,7 @@ func TestGetDocumentMetaEdges(t *testing.T) {
 
 		[]StringCase{
 			{"<title>a b</title>", "a b"},
+			{"<title> \n a  b \n </title>", "a b"},
 		})
 }
 
