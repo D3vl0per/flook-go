@@ -72,7 +72,18 @@ func getTextWithSeparators(s *goquery.Selection, separator string) string {
 func getInputToTldr(pureUrl string, doc *goquery.Document, longMeta string) (string) {
 	tldrInput := ""
 
-	textNodes := doc.Find("p")
+	textNodes := doc.Find("h1").
+		AddSelection(doc.Find("h2")).
+		AddSelection(doc.Find("h3")).
+		AddSelection(doc.Find("h4")).
+		AddSelection(doc.Find("h5")).
+		AddSelection(doc.Find("h6")).
+		AddSelection(doc.Find("p")).
+		AddSelection(doc.Find("summary")).
+		AddSelection(doc.Find("li")).
+		AddSelection(doc.Find("td")).
+		AddSelection(doc.Find("button"))
+
 	pageContent := trim(getTextWithSeparators(textNodes.Contents(), "\n"))
 
 	pageContent = emoji.RemoveAll(pageContent)
