@@ -54,6 +54,14 @@ func TestTrim(t *testing.T) {
 		})
 }
 
+func TestTrimLastWord(t *testing.T) {
+	asserts(t, trimLastWord, []StringCase{
+		{"a", "a"},
+		{"a  12345678901234567890123456789012", "a"},
+		{"a  123456789012345678901234567890123", "a  123456789012345678901234567890123"},
+		})
+}
+
 func getHtmlFromString(t *testing.T, html string) *goquery.Document {
 	reader := strings.NewReader(html)
 	doc, err := goquery.NewDocumentFromReader(reader)
@@ -114,7 +122,7 @@ func TestGetDocumentMetaEdges(t *testing.T) {
 }
 
 func TestGetInputToTldrEdges(t *testing.T) {
-	enoughCats := strings.Repeat("cat ", 499) + "cats"
+	enoughCats := strings.Repeat("cat ", 499) + "U"
 	asserts(
 		t,
 		func(html string) string {

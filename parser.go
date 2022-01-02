@@ -15,6 +15,10 @@ func trim(in string) (string) {
 	return trimmed
 }
 
+func trimLastWord(in string) (string) {
+	return regexp.MustCompile("\\s+\\S{0,32}$").ReplaceAllString(in, "")
+}
+
 func getDocumentMeta(host string, doc *goquery.Document) (string, string) {
 	metaMessage := ""
 	longMeta := ""
@@ -39,7 +43,7 @@ func getInputToTldr(pureUrl string, doc *goquery.Document, longMeta string) (str
 		tldrInput = pageContent
 		tldrInput = emoji.RemoveAll(tldrInput)
 		if len(tldrInput) > 2000 {
-			tldrInput = tldrInput[0:2000]
+			tldrInput = trimLastWord(tldrInput[0:2000])
 		}
 		tldrInput += "\ntl;dr:"
 	}
