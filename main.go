@@ -256,7 +256,7 @@ func getPreviewsForUrl(pureUrl string) (string, string) {
 	if len(tldrInput) > 0 {
 		maybeTldr := parseOpenAI(tldrInput)
 		if len(maybeTldr) > 0 {
-			tldrMessage = "((Estimated TL;DR)) " + maybeTldr
+			tldrMessage = "((OpenAI TL;DR)) " + maybeTldr
 		}
 	}
 	return metaMessage, tldrMessage
