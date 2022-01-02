@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"strings"
 	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/tmdvs/Go-Emoji-Utils"
+	"golang.org/x/net/html"
 )
 
 func trim(in string) (string) {
@@ -45,11 +47,33 @@ func urlTokens(url string) (string) {
 	return tokens
 }
 
+func getTextWithSeparators(s *goquery.Selection, separator string) string {
+	var buf bytes.Buffer
+
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if n.Type == html.TextNode {
+			buf.WriteString(n.Data)
+			buf.WriteString(separator)
+		}
+		if n.FirstChild != nil {
+			for c := n.FirstChild; c != nil; c = c.NextSibling {
+				f(c)
+			}
+		}
+	}
+	for _, n := range s.Nodes {
+		f(n)
+	}
+
+	return buf.String()
+}
+
 func getInputToTldr(pureUrl string, doc *goquery.Document, longMeta string) (string) {
 	tldrInput := ""
 
 	textNodes := doc.Find("p")
-	pageContent := trim(textNodes.Contents().Text())
+	pageContent := trim(getTextWithSeparators(textNodes.Contents(), "\n"))
 
 	pageContent = emoji.RemoveAll(pageContent)
 	if len(pageContent) > 0 {

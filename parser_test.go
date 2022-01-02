@@ -154,6 +154,7 @@ func TestGetInputToTldrEdges(t *testing.T) {
 
 		[]StringCase{
 			{"<p>p</p>", "p"},
+			{"<p>p1</p><p>p2</p>", "p1 p2"},
 			{"<p>hi📞</p>", "hi"},
 			{"<p>" + enoughCats + "</p>", enoughCats},
 			{"<p>" + enoughCats + " cat</p>", enoughCats},
