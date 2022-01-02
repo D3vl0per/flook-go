@@ -141,6 +141,11 @@ func TestGetInputToTldrOutput(t *testing.T) {
 	assert(t, gotTldrInput, "Keywords: example com.\ndescription\nhi there\ntl;dr:", "tldrInput")
 }
 
+func TestGetInputToTldrEmpty(t *testing.T) {
+	gotTldrInput := getInputToTldr("http://example.com", getHtmlFromString(t, ""), "")
+	assert(t, gotTldrInput, "", "tldrInput")
+}
+
 func TestGetInputToTldrEdges(t *testing.T) {
 	enoughCats := strings.Repeat("cat ", 499) + "U"
 	asserts(
