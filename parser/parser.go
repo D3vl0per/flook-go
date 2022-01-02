@@ -1,23 +1,51 @@
-package main
+package parser
 
 import (
 	"bytes"
-	"strings"
 	"regexp"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/tmdvs/Go-Emoji-Utils"
+	lr "github.com/sirupsen/logrus"
+	emoji "github.com/tmdvs/Go-Emoji-Utils"
 	"golang.org/x/net/html"
 )
 
-func trim(in string) (string) {
+func GetPreviews(url string, config OpenAI) (string, string) {
+	resp, err := Client.Get(url)
+	if err != nil {
+		lr.Error(err)
+	}
+	contentType := resp.Header.Get("Content-Type")
+	if !regexp.MustCompile("^text/html($|;)").MatchString(contentType) {
+		return "", ""
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		lr.Error(err)
+	}
+
+	metaMessage, longMeta := getDocumentMeta(resp.Request.URL.Host, doc)
+	tldrMessage := ""
+	tldrInput := getInputToTldr(url, doc, longMeta)
+	if len(tldrInput) > 0 {
+		maybeTldr := trim(parseOpenAI(tldrInput, config))
+		if len(maybeTldr) > 0 {
+			tldrMessage = "((OpenAI TL;DR)) " + maybeTldr
+		}
+	}
+	return metaMessage, tldrMessage
+}
+
+func trim(in string) string {
 	trimmed := strings.Trim(in, " .,:\n")
 	trimmed = regexp.MustCompile("[ \\t]+").ReplaceAllString(trimmed, " ")
 	trimmed = regexp.MustCompile("\n+").ReplaceAllString(trimmed, "\n")
 	return trimmed
 }
 
-func trimLastWord(in string) (string) {
+func trimLastWord(in string) string {
 	return regexp.MustCompile("\\s+\\S{0,32}$").ReplaceAllString(in, "")
 }
 
@@ -38,8 +66,7 @@ func getDocumentMeta(host string, doc *goquery.Document) (string, string) {
 	return metaMessage, longMeta
 }
 
-
-func urlTokens(url string) (string) {
+func urlTokens(url string) string {
 	tokens := url
 	tokens = regexp.MustCompile("^[^:]+://").ReplaceAllString(tokens, "")
 	tokens = regexp.MustCompile("[][ !\"#$%&'()*+,./:;<=>?@\\^_`{|}~-]+").ReplaceAllString(tokens, " ")
@@ -59,7 +86,7 @@ func getTextWithSeparators(s *goquery.Selection, separator string) string {
 	return buf.String()
 }
 
-func getInputToTldr(pureUrl string, doc *goquery.Document, longMeta string) (string) {
+func getInputToTldr(pureUrl string, doc *goquery.Document, longMeta string) string {
 	tldrInput := ""
 
 	textNodes := doc.Find("h1").

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/D3vl0per/flook-go/parser"
 	"github.com/PuerkitoBio/goquery"
 	_ "github.com/joho/godotenv/autoload"
 	lr "github.com/sirupsen/logrus"
@@ -22,22 +23,9 @@ import (
 	"mvdan.cc/xurls/v2"
 )
 
-var client *http.Client
-
-func init() {
-	client = &http.Client{
-		Timeout: 5 * time.Second,
-		Transport: &http.Transport{
-			MaxIdleConns:       10,
-			IdleConnTimeout:    30 * time.Second,
-			DisableCompression: false,
-		},
-	}
-}
-
 type Config struct {
 	IRC    IRC
-	OpenAI OpenAI
+	OpenAI parser.OpenAI
 }
 
 type IRC struct {
@@ -45,12 +33,6 @@ type IRC struct {
 	Channel string
 	Nick    string
 	User    string
-}
-
-type OpenAI struct {
-	Instance string
-	APIToken string
-	MaxToken int
 }
 
 var config Config
@@ -122,7 +104,11 @@ type NitterInstances []struct {
 
 func parseBody(url string) (resp *http.Response, body []byte) {
 	resp = httpGet(url)
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("[ERROR] %s", err.Error())
+		}
+	}()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		lr.Fatal(err)
@@ -131,7 +117,7 @@ func parseBody(url string) (resp *http.Response, body []byte) {
 }
 
 func httpGet(url string) *http.Response {
-	resp, err := client.Get(url)
+	resp, err := parser.Client.Get(url)
 	if err != nil {
 		lr.Error(err)
 	}
@@ -144,7 +130,9 @@ func getRandomNitterInstance() (randomHost string) {
 	if resp.StatusCode == 200 {
 
 		var nitterInstances NitterInstances
-		json.Unmarshal(body, &nitterInstances)
+		if err := json.Unmarshal(body, &nitterInstances); err != nil {
+			log.Printf("[ERROR] %s", err.Error())
+		}
 		var ups []int
 
 		for i := range nitterInstances {
@@ -162,101 +150,11 @@ func getRandomNitterInstance() (randomHost string) {
 	return randomHost
 }
 
-type Payload struct {
-	Prompt           string  `json:"prompt"`
-	Temperature      float64 `json:"temperature"`
-	MaxTokens        int     `json:"max_tokens"`
-	TopP             float64 `json:"top_p"`
-	FrequencyPenalty float64 `json:"frequency_penalty"`
-	PresencePenalty  float64 `json:"presence_penalty"`
-}
-
-type OpenAIResponse struct {
-	ID      string    `json:"id"`
-	Object  string    `json:"object"`
-	Created int       `json:"created"`
-	Model   string    `json:"model"`
-	Choices []Choices `json:"choices"`
-}
-type Choices struct {
-	Text         string      `json:"text"`
-	Index        int         `json:"index"`
-	Logprobs     interface{} `json:"logprobs"`
-	FinishReason string      `json:"finish_reason"`
-}
-
-func parseOpenAI(source string) (tldr string) {
-	resp := openAIHttpPost(source)
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		lr.Fatal(err)
-	}
-
-	var openAIResponse OpenAIResponse
-	json.Unmarshal(body, &openAIResponse)
-
-	return openAIResponse.Choices[0].Text
-}
-
-func openAIHttpPost(source string) (tldr *http.Response) {
-	data := Payload{
-		Prompt:           source,
-		Temperature:      0.3,
-		MaxTokens:        config.OpenAI.MaxToken,
-		TopP:             1.0,
-		FrequencyPenalty: 0.0,
-		PresencePenalty:  0.0,
-	}
-	payloadBytes, err := json.Marshal(data)
-	if err != nil {
-		lr.Error(err)
-	}
-	body := bytes.NewReader(payloadBytes)
-
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/engines/"+config.OpenAI.Instance+"/completions", body)
-	if err != nil {
-		lr.Error(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", config.OpenAI.APIToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		lr.Error(err)
-	}
-	return resp
-
-}
-
-func getPreviewsForUrl(pureUrl string) (string, string) {
-	resp := httpGet(pureUrl)
-	contentType := resp.Header.Get("Content-Type")
-	if !regexp.MustCompile("^text/html($|;)").MatchString(contentType) {
-		return "", ""
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		lr.Error(err)
-	}
-
-	metaMessage, longMeta := getDocumentMeta(resp.Request.URL.Host, doc)
-	tldrMessage := ""
-	tldrInput := getInputToTldr(pureUrl, doc, longMeta)
-	if len(tldrInput) > 0 {
-		maybeTldr := trim(parseOpenAI(tldrInput))
-		if len(maybeTldr) > 0 {
-			tldrMessage = "((OpenAI TL;DR)) " + maybeTldr
-		}
-	}
-	return metaMessage, tldrMessage
-}
-
 func main() {
-
 	irccon := irc.IRC(config.IRC.Nick, config.IRC.User)
+	if irccon == nil {
+		log.Fatal("IRC connection failed")
+	}
 	irccon.VerboseCallbackHandler = false
 	irccon.Debug = false
 	irccon.UseTLS = true
@@ -297,7 +195,7 @@ func main() {
 				irccon.Privmsg(event.Arguments[0], replacedUrl)
 
 			} else {
-				meta, tldr := getPreviewsForUrl(urlsInMessage[0])
+				meta, tldr := parser.GetPreviews(urlsInMessage[0], config.OpenAI)
 				if len(meta) > 0 {
 					irccon.Privmsg(event.Arguments[0], meta)
 				}

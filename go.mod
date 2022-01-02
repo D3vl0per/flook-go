@@ -1,4 +1,4 @@
-module github.com/D3vl0per/privacy-proxy-irc-bot
+module github.com/D3vl0per/flook-go
 
 go 1.17
 
