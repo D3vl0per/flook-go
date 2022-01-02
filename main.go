@@ -18,7 +18,6 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	lr "github.com/sirupsen/logrus"
 	irc "github.com/thoj/go-ircevent"
-	emoji "github.com/tmdvs/Go-Emoji-Utils"
 	"golang.org/x/net/html"
 	"mvdan.cc/xurls/v2"
 )
@@ -202,14 +201,6 @@ func parseOpenAI(source string) (tldr string) {
 }
 
 func openAIHttpPost(source string) (tldr *http.Response) {
-
-	if len(source) > 2000 {
-		source = source[0:2000]
-	}
-
-	source = emoji.RemoveAll(source)
-	source += "\ntl;dr:"
-
 	data := Payload{
 		Prompt:           source,
 		Temperature:      0.3,
@@ -239,6 +230,25 @@ func openAIHttpPost(source string) (tldr *http.Response) {
 
 }
 
+func getPreviewsForUrl(pureUrl string) (string, string) {
+	resp := httpGet(pureUrl)
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		lr.Error(err)
+	}
+
+	metaMessage, longMeta := getDocumentMeta(resp.Request.URL.Host, doc)
+	tldrMessage := ""
+	tldrInput := getInputToTldr(pureUrl, doc, longMeta)
+	if len(tldrInput) > 0 {
+		maybeTldr := trim(parseOpenAI(tldrInput))
+		if len(maybeTldr) > 0 {
+			tldrMessage = "((OpenAI TL;DR)) " + maybeTldr
+		}
+	}
+	return metaMessage, tldrMessage
+}
+
 func main() {
 
 	irccon := irc.IRC(config.IRC.Nick, config.IRC.User)
@@ -251,7 +261,7 @@ func main() {
 	irccon.AddCallback("PRIVMSG", func(event *irc.Event) {
 
 		rxRelaxed := xurls.Relaxed()
-		re := regexp.MustCompile(" [(]re: @[^ :]*: .*")
+		re := regexp.MustCompile(" [(]re:? @[^ :]+: .*")
 		message := re.ReplaceAllString(event.Message(), "")
 		urlsInMessage := rxRelaxed.FindAllString(message, -1)
 		//irccon.Privmsg(event.Arguments[0], "Lol, twitter")
@@ -282,22 +292,12 @@ func main() {
 				irccon.Privmsg(event.Arguments[0], replacedUrl)
 
 			} else {
-				pureUrl := urlsInMessage[0]
-
-				resp := httpGet(pureUrl)
-				doc, err := goquery.NewDocumentFromReader(resp.Body)
-				if err != nil {
-					lr.Error(err)
+				meta, tldr := getPreviewsForUrl(urlsInMessage[0])
+				if len(meta) > 0 {
+					irccon.Privmsg(event.Arguments[0], meta)
 				}
-				title := doc.Find("Title").Contents().Text()
-				if len(title) > 0 {
-					irccon.Privmsg(event.Arguments[0], "(("+resp.Request.URL.Host+")) "+title)
-				}
-
-				tldr := parseOpenAI(doc.Find("p").Contents().Text())
-
 				if len(tldr) > 0 {
-					irccon.Privmsg(event.Arguments[0], "((Estimated TL;DR)) "+tldr)
+					irccon.Privmsg(event.Arguments[0], tldr)
 				}
 
 			}
