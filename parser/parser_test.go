@@ -1,6 +1,6 @@
-package main
+package parser
 
-import(
+import (
 	"regexp"
 	"strconv"
 	"strings"
@@ -10,7 +10,7 @@ import(
 )
 
 type StringCase struct {
-	in string
+	in  string
 	out string
 }
 
@@ -34,7 +34,7 @@ func assert(t *testing.T, got string, want string, message string) {
 }
 
 func assertFun(t *testing.T, fun func(string) string, in string, want string) {
-	assert(t, fun(in), want, "case '" + in + "'")
+	assert(t, fun(in), want, "case '"+in+"'")
 }
 
 func asserts(t *testing.T, fun func(string) string, cases []StringCase) {
@@ -51,7 +51,7 @@ func TestTrim(t *testing.T) {
 		{"  .,:a", "a"},
 		{"a  b", "a b"},
 		{"a\n\nb", "a\nb"},
-		})
+	})
 }
 
 func TestTrimLastWord(t *testing.T) {
@@ -59,14 +59,14 @@ func TestTrimLastWord(t *testing.T) {
 		{"a", "a"},
 		{"a  12345678901234567890123456789012", "a"},
 		{"a  123456789012345678901234567890123", "a  123456789012345678901234567890123"},
-		})
+	})
 }
 
 func TestUrlTokens(t *testing.T) {
 	asserts(t, urlTokens, []StringCase{
 		{"a", "a"},
 		{"http://www.example.com/best-picture", "example com best picture"},
-		})
+	})
 }
 
 func getHtmlFromString(t *testing.T, html string) *goquery.Document {
@@ -115,9 +115,9 @@ func TestGetDocumentMetaOutputs(t *testing.T) {
 func TestGetDocumentMetaLongTitle(t *testing.T) {
 	cats := strings.Repeat("cat ", 96) + "cat"
 	moreCats := cats + " cat cat"
-	html :=  "<html><head><title>" + moreCats + "</title></head><body></body></html>"
+	html := "<html><head><title>" + moreCats + "</title></head><body></body></html>"
 	gotMetaMessage, gotLongMeta := getDocumentMeta("host", getHtmlFromString(t, html))
-	assert(t, gotMetaMessage, "((host)) " + cats + "...", "metaMessage")
+	assert(t, gotMetaMessage, "((host)) "+cats+"...", "metaMessage")
 	assert(t, gotLongMeta, moreCats, "longMeta")
 }
 
