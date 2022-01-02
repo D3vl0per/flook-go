@@ -245,14 +245,10 @@ func getPreviewsForUrl(pureUrl string) (string, string) {
 	if err != nil {
 		lr.Error(err)
 	}
-	title := doc.Find("Title").Contents().Text()
-	metaMessage := ""
-	if len(title) > 0 {
-		metaMessage = "((" + resp.Request.URL.Host + ")) " + title
-	}
 
+	metaMessage, longMeta := getDocumentMeta(resp.Request.URL.Host, doc)
 	tldrMessage := ""
-	tldrInput := doc.Find("p").Contents().Text()
+	tldrInput := getInputToTldr(pureUrl, doc, longMeta)
 	if len(tldrInput) > 0 {
 		maybeTldr := parseOpenAI(tldrInput)
 		if len(maybeTldr) > 0 {
