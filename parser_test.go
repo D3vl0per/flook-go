@@ -62,6 +62,13 @@ func TestTrimLastWord(t *testing.T) {
 		})
 }
 
+func TestUrlTokens(t *testing.T) {
+	asserts(t, urlTokens, []StringCase{
+		{"a", "a"},
+		{"http://www.example.com/best-picture", "example com best picture"},
+		})
+}
+
 func getHtmlFromString(t *testing.T, html string) *goquery.Document {
 	reader := strings.NewReader(html)
 	doc, err := goquery.NewDocumentFromReader(reader)
@@ -80,7 +87,6 @@ bad  title</title>
 		</head>
 		<body>
 			<p>hi there</p>
-			<p>world</p>
 		</body>
 		</html>
 	`)
@@ -128,6 +134,11 @@ func TestGetDocumentMetaEdges(t *testing.T) {
 			{"<title>a b</title>", "a b"},
 			{"<title> \n a  b \n </title>", "a b"},
 		})
+}
+
+func TestGetInputToTldrOutput(t *testing.T) {
+	gotTldrInput := getInputToTldr("http://example.com", getExampleHtml(t), "description")
+	assert(t, gotTldrInput, "Keywords: example com.\ndescription\nhi there\ntl;dr:", "tldrInput")
 }
 
 func TestGetInputToTldrEdges(t *testing.T) {

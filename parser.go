@@ -36,15 +36,32 @@ func getDocumentMeta(host string, doc *goquery.Document) (string, string) {
 	return metaMessage, longMeta
 }
 
+
+func urlTokens(url string) (string) {
+	tokens := url
+	tokens = regexp.MustCompile("^[^:]+://").ReplaceAllString(tokens, "")
+	tokens = regexp.MustCompile("[][ !\"#$%&'()*+,./:;<=>?@\\^_`{|}~-]+").ReplaceAllString(tokens, " ")
+	tokens = regexp.MustCompile("(^| )www[0-9]*\\b *").ReplaceAllString(tokens, "")
+	return tokens
+}
+
 func getInputToTldr(pureUrl string, doc *goquery.Document, longMeta string) (string) {
 	tldrInput := ""
 
 	textNodes := doc.Find("p")
-
 	pageContent := trim(textNodes.Contents().Text())
+
+	pageContent = emoji.RemoveAll(pageContent)
 	if len(pageContent) > 0 {
-		tldrInput = pageContent
-		tldrInput = emoji.RemoveAll(tldrInput)
+		url := urlTokens(pureUrl)
+		if len(url) > 0 {
+			url = "Keywords: " + emoji.RemoveAll(urlTokens(pureUrl)) + ".\n"
+		}
+		if len(longMeta) > 0 {
+			longMeta = emoji.RemoveAll(longMeta) + "\n"
+		}
+		tldrInput = url + longMeta + pageContent
+
 		if len(tldrInput) > 2000 {
 			tldrInput = trimLastWord(tldrInput[0:2000])
 		}
