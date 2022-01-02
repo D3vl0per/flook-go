@@ -253,9 +253,11 @@ func getPreviewsForUrl(pureUrl string) (string, string) {
 
 	tldrMessage := ""
 	tldrInput := doc.Find("p").Contents().Text()
-	maybeTldr := parseOpenAI(tldrInput)
-	if len(maybeTldr) > 0 {
-		tldrMessage = "((Estimated TL;DR)) " + maybeTldr
+	if len(tldrInput) > 0 {
+		maybeTldr := parseOpenAI(tldrInput)
+		if len(maybeTldr) > 0 {
+			tldrMessage = "((Estimated TL;DR)) " + maybeTldr
+		}
 	}
 	return metaMessage, tldrMessage
 }
