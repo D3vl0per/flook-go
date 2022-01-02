@@ -251,7 +251,7 @@ func main() {
 	irccon.AddCallback("PRIVMSG", func(event *irc.Event) {
 
 		rxRelaxed := xurls.Relaxed()
-		re := regexp.MustCompile(" [(]re: @[^ :]*: .*")
+		re := regexp.MustCompile(" [(]re:? @[^ :]+: .*")
 		message := re.ReplaceAllString(event.Message(), "")
 		urlsInMessage := rxRelaxed.FindAllString(message, -1)
 		//irccon.Privmsg(event.Arguments[0], "Lol, twitter")
