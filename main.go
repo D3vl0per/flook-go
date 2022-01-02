@@ -18,7 +18,6 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	lr "github.com/sirupsen/logrus"
 	irc "github.com/thoj/go-ircevent"
-	emoji "github.com/tmdvs/Go-Emoji-Utils"
 	"golang.org/x/net/html"
 	"mvdan.cc/xurls/v2"
 )
@@ -202,14 +201,6 @@ func parseOpenAI(source string) (tldr string) {
 }
 
 func openAIHttpPost(source string) (tldr *http.Response) {
-
-	if len(source) > 2000 {
-		source = source[0:2000]
-	}
-
-	source = emoji.RemoveAll(source)
-	source += "\ntl;dr:"
-
 	data := Payload{
 		Prompt:           source,
 		Temperature:      0.3,

@@ -2,6 +2,7 @@ package main
 
 import(
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -13,17 +14,27 @@ type StringCase struct {
 	out string
 }
 
+func showMiddleN(in string, cap int) string {
+	out := in
+	n := len(in)
+	if n > cap {
+		out = in[0:cap-cap/2-2] + "..." + in[n-cap/2+1:n] + " (" + strconv.Itoa(n) + ")"
+	}
+	return out
+}
+
+func showMiddle(in string) string {
+	return showMiddleN(in, 64)
+}
+
 func assert(t *testing.T, got string, want string, message string) {
 	if got != want {
-		t.Errorf("%s got: '%s', want: '%s'", message, got, want)
+		t.Errorf("%s got: '%s', want: '%s'", showMiddle(message), showMiddle(got), showMiddle(want))
 	}
 }
 
 func assertFun(t *testing.T, fun func(string) string, in string, want string) {
-	got := fun(in)
-	if got != want {
-		t.Errorf("case '%s' got: '%s', want: '%s'", in, got, want)
-	}
+	assert(t, fun(in), want, "case '" + in + "'")
 }
 
 func asserts(t *testing.T, fun func(string) string, cases []StringCase) {
@@ -55,6 +66,20 @@ func getExampleHtml(t *testing.T) *goquery.Document {
 	`)
 }
 
+func testShowMiddleN(t *testing.T, n int, want string) {
+	in := "123456789"
+	got := showMiddleN(in, n)
+	if got != want {
+		t.Errorf("case ('%s',%d) got: '%s', want: '%s'", in, n, got, want)
+	}
+}
+
+func TestShowMiddleN(t *testing.T) {
+	testShowMiddleN(t, 9, "123456789")
+	testShowMiddleN(t, 8, "12...789 (9)")
+	testShowMiddleN(t, 7, "12...89 (9)")
+}
+
 func TestGetDocumentMetaOutputs(t *testing.T) {
 	gotMetaMessage, gotLongMeta := getDocumentMeta("host", getExampleHtml(t))
 	assert(t, gotMetaMessage, "((host)) a title", "metaMessage")
@@ -76,6 +101,7 @@ func TestGetDocumentMetaEdges(t *testing.T) {
 }
 
 func TestGetInputToTldrEdges(t *testing.T) {
+	enoughCats := strings.Repeat("cat ", 499) + "cats"
 	asserts(
 		t,
 		func(html string) string {
@@ -87,5 +113,8 @@ func TestGetInputToTldrEdges(t *testing.T) {
 
 		[]StringCase{
 			{"<p>p</p>", "p"},
+			{"<p>hi📞</p>", "hi"},
+			{"<p>" + enoughCats + "</p>", enoughCats},
+			{"<p>" + enoughCats + " cat</p>", enoughCats},
 		})
 }
