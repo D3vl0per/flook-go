@@ -160,5 +160,6 @@ func TestGetInputToTldrEdges(t *testing.T) {
 			{"<p>" + enoughCats + " cat</p>", enoughCats},
 			{"<h1>h1</h1>", "h1"},
 			{"<h1>h1</h1><p>p1</p><h2>h2</h2><p>p2</p>", "h1 h2 p1 p2"},
+			{"<div><p>p</p> d <ul><li>li</li></ul> <script>script</script></div>", "p li d"},
 		})
 }
