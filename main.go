@@ -232,6 +232,11 @@ func openAIHttpPost(source string) (tldr *http.Response) {
 
 func getPreviewsForUrl(pureUrl string) (string, string) {
 	resp := httpGet(pureUrl)
+	contentType := resp.Header.Get("Content-Type")
+	if !regexp.MustCompile("^text/html($|;)").MatchString(contentType) {
+		return "", ""
+	}
+
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		lr.Error(err)
